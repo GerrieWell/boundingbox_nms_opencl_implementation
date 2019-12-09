@@ -1,7 +1,4 @@
 
-// 为什么是这个数？
-// 因为 1. 用位标志做mask， 所以用最长的基础类型； 2. 要32的倍数；
-
 #define DIVUP(m,n) ((m) / (n) + ((m) % (n) > 0))
 
 float devIoU(float const * const a, float const * const b) {
@@ -14,7 +11,6 @@ float devIoU(float const * const a, float const * const b) {
   return interS / (Sa + Sb - interS);
 }
 
-
 //todo copy cuda argument
 __kernel void nms_kernel(int n_boxes, float nms_overlap_thresh, 
 		__global float* d_boxes, __global unsigned long *d_mask, __local float *local_boxes){
@@ -23,17 +19,15 @@ __kernel void nms_kernel(int n_boxes, float nms_overlap_thresh,
 	// 其实可以用 getGroupId
 	//group index 
 	const int row_start = get_global_id(1);
-	//block col index / 当前box 对应哪【64】个boxes组的结果, col_start 可以索引哪[64]个boxes组
 	const int col_start = get_global_id(0)/threadsPerBlock;
 	// printf("row_start:%d \n", row_start);
 	// if (row_start > col_start) return;
-//copy to global for debuging
 	const int row_size =
 	    min(n_boxes - row_start * threadsPerBlock, threadsPerBlock);
 	const int col_size =
 	    min(n_boxes - col_start * threadsPerBlock, threadsPerBlock);
 
-	// 同一个block 的所有thread 的boxes
+	// 同一个work-group 的所有thread 的boxes
 	int item_idx = get_local_id(0);
 	if (item_idx < col_size) {
 	local_boxes[item_idx * 4+ 0] =
@@ -78,11 +72,6 @@ __kernel void nms_kernel(int n_boxes, float nms_overlap_thresh,
 		d_mask[cur_box_idx * col_blocks + col_start] = t;
 		// int id = get_global_id(1) * get_global_size(0) + get_global_id(0);
 		// d_mask[id] = t;
-    	// barrier(CLK_LOCAL_MEM_FENCE);
-	}else{
-		d_mask[cur_box_idx * col_blocks + col_start] = 0;
+    	// barrier(CLK_LOCAL_MEM_FENCE); // 会有一个数据异常
 	}
-	// unsigned long long t = 4;
-	// int id = get_global_id(1) * get_global_size(0) + get_global_id(0);
-	// d_mask[id] = t;
 }
